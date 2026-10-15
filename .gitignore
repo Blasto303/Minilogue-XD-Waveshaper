@@ -2,3 +2,4 @@ build/
 *.mnlgxdunit
 renders/
 tools/render/render
+tools/render/render_fx

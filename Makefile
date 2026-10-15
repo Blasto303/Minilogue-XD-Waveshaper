@@ -1,17 +1,18 @@
 # Top-level shortcuts.
-#   make         build oscillators/waveshaper/waveshaper.mnlgxdunit
+#   make         build every unit (.mnlgxdunit files next to each project)
 #   make render  render the WAV demos into renders/
 #   make clean
 
+UNITS := oscillators/waveshaper effects/freqshift effects/spiral
+
 all:
-	$(MAKE) -C oscillators/waveshaper
-	$(MAKE) -C oscillators/waveshaper install
+	@for u in $(UNITS); do $(MAKE) -C $$u && $(MAKE) -C $$u install || exit 1; done
 
 render:
 	$(MAKE) -C tools/render
 
 clean:
-	$(MAKE) -C oscillators/waveshaper clean
+	@for u in $(UNITS); do $(MAKE) -C $$u clean; done
 	$(MAKE) -C tools/render clean
 
 .PHONY: all render clean

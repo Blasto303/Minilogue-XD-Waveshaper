@@ -14,61 +14,13 @@
 
 #include <stdint.h>
 
-#if defined(__arm__)
-#define WSH_INLINE static inline __attribute__((always_inline, optimize("Ofast")))
-#else
-#define WSH_INLINE static inline __attribute__((always_inline))
-#include <cmath>
-#endif
+#include "../../common/dsp_math.hpp"
+
+#define WSH_INLINE DSPM_INLINE
 
 namespace wsh {
 
-// ---------------------------------------------------------------------------
-// Math helpers. Kept local so the firmware build never links libm.
-// ---------------------------------------------------------------------------
-
-WSH_INLINE float floorf_(float x) {
-  const float t = (float)(int32_t)x;
-  return (t > x) ? t - 1.f : t;
-}
-
-WSH_INLINE float fabsf_(float x) { return x < 0.f ? -x : x; }
-
-WSH_INLINE float clampf_(float x, float lo, float hi) {
-  return x < lo ? lo : (x > hi ? hi : x);
-}
-
-WSH_INLINE float sqrtf_(float x) {
-#if defined(__arm__)
-  float r;
-  __asm__("vsqrt.f32 %0, %1" : "=t"(r) : "t"(x));
-  return r;
-#else
-  return std::sqrt(x);
-#endif
-}
-
-// sin(2*pi*t), t in turns, any range. Max error around 1e-7.
-WSH_INLINE float sin_turns(float t) {
-  t -= floorf_(t + 0.5f);  // [-0.5, 0.5)
-  if (t > 0.25f)
-    t = 0.5f - t;
-  else if (t < -0.25f)
-    t = -0.5f - t;  // [-0.25, 0.25]
-  const float x = t * 6.283185307f;
-  const float x2 = x * x;
-  return x * (1.f + x2 * (-1.6666667e-1f +
-                          x2 * (8.3333333e-3f +
-                                x2 * (-1.9841270e-4f + x2 * 2.7557319e-6f))));
-}
-
-WSH_INLINE float cos_turns(float t) { return sin_turns(t + 0.25f); }
-
-// Cubic soft clip, flat above |x| = 1.5.
-WSH_INLINE float softclip(float x) {
-  x = clampf_(x, -1.5f, 1.5f);
-  return x - (4.f / 27.f) * x * x * x;
-}
+using namespace dspm;
 
 // ---------------------------------------------------------------------------
 // Shapers. Each has f(u) and its antiderivative F(u) for ADAA.
