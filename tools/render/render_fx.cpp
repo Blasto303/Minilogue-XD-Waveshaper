@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "../../common/dungeon_core.hpp"
 #include "../../common/freqshift_core.hpp"
 #include "wav.hpp"
 
@@ -140,6 +141,38 @@ static std::vector<float> run(const fshift::Config &cfg, std::vector<float> x,
   return x;
 }
 
+// --- Dungeon --------------------------------------------------------------
+
+// Same voicings as effects/dungeon/dungeon.cpp.
+static const dungeon::Voicing kEcho = {0.12f, 1.5f, 0.6f, 1};
+static const dungeon::Voicing kMetal = {0.6f, 23.f, 0.8f, 7};
+static const dungeon::Voicing kVoid = {1.f, -0.35f, 0.35f, 3};
+
+// TIME knob value for an echo time in seconds (inverse of setTime).
+static float time_for_s(float s) {
+  return std::log(s / dungeon::Dungeon::kMinTime) /
+         std::log(dungeon::Dungeon::kMaxTime / dungeon::Dungeon::kMinTime);
+}
+
+// FEED in [-1, 1] -> DEPTH knob value.
+static float depth_for_feed(float f) { return 0.5f + 0.5f * f; }
+
+using DngAutomation = std::function<void(dungeon::Dungeon &, float t)>;
+
+static std::vector<float> run_dng(const dungeon::Voicing &v, std::vector<float> x,
+                                  DngAutomation automate) {
+  static dungeon::Memory *mem = new dungeon::Memory;
+  dungeon::Dungeon d;
+  d.init(mem, v);
+  const size_t frames = x.size() / 2;
+  for (size_t i = 0; i < frames; i += kBlock) {
+    automate(d, (float)i / kRate);
+    const size_t n = std::min<size_t>(kBlock, frames - i);
+    d.process(&x[2 * i], n);
+  }
+  return x;
+}
+
 int main(int argc, char **argv) {
   const std::string dir = argc > 1 ? argv[1] : "renders";
   // Same settings as effects/freqshift/freqshift.cpp.
@@ -192,5 +225,66 @@ int main(int argc, char **argv) {
               fs.setTime(t / 8.f);
               fs.setDepth(1.f);
             }), 2);
+
+  // --- Dungeon ---
+
+  // DngEcho on the arpeggio: notch side (FEED right), then spiral side.
+  write_wav(dir + "/20_dngecho_arp.wav",
+            run_dng(kEcho, arp(12.f, 9.f), [](dungeon::Dungeon &d, float t) {
+              d.setTime(time_for_s(0.33f));
+              d.setFeed(depth_for_feed(t < 6.f ? 0.75f : -0.75f));
+              d.setMix(0.5f);
+            }), 2);
+
+  // DngMetal on drums: short time, FEED swept from full left to full right.
+  write_wav(dir + "/21_dngmetal_drums_feed_sweep.wav",
+            run_dng(kMetal, drums(10.f), [](dungeon::Dungeon &d, float t) {
+              d.setTime(time_for_s(0.045f));
+              d.setFeed(depth_for_feed(-1.f + 2.f * t / 10.f));
+              d.setMix(0.5f);
+            }), 2);
+
+  // DngMetal drone: FEED at 100 % so the loop holds on its own after the
+  // arpeggio stops at 4 s; TIME is then turned (tape-style pitch bend).
+  write_wav(dir + "/22_dngmetal_time_bend.wav",
+            run_dng(kMetal, arp(12.f, 4.f), [](dungeon::Dungeon &d, float t) {
+              const float s = t < 5.f ? 0.12f : (t < 9.f ? 0.12f + 0.1f * (t - 5.f) : 0.52f);
+              d.setTime(time_for_s(s));
+              d.setFeed(depth_for_feed(-1.f));  // full FEED: self-sustains
+              d.setMix(0.6f);
+            }), 2);
+
+  // DngVoid on the pad.
+  write_wav(dir + "/23_dngvoid_pad.wav",
+            run_dng(kVoid, pad(12.f), [](dungeon::Dungeon &d, float) {
+              d.setTime(time_for_s(0.45f));
+              d.setFeed(depth_for_feed(-0.8f));
+              d.setMix(0.65f);
+            }), 2);
+
+  // DngVoid on drums, notch side, fully wet.
+  write_wav(dir + "/24_dngvoid_drums_wet.wav",
+            run_dng(kVoid, drums(10.f), [](dungeon::Dungeon &d, float) {
+              d.setTime(time_for_s(0.25f));
+              d.setFeed(depth_for_feed(0.85f));
+              d.setMix(1.f);
+            }), 2);
+
+  // Stress test: every voicing, FEED at both extremes, short and long time.
+  {
+    std::vector<float> all;
+    const dungeon::Voicing vs[] = {kEcho, kMetal, kVoid};
+    for (const auto &v : vs)
+      for (float feed : {-1.f, 1.f})
+        for (float tm : {0.01f, 1.5f}) {
+          auto y = run_dng(v, drums(3.f), [feed, tm](dungeon::Dungeon &d, float) {
+            d.setTime(time_for_s(tm));
+            d.setFeed(depth_for_feed(feed));
+            d.setMix(1.f);
+          });
+          all.insert(all.end(), y.begin(), y.end());
+        }
+    write_wav(dir + "/25_dungeon_stress_test.wav", all, 2);
+  }
   return 0;
 }

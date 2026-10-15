@@ -7,6 +7,9 @@ Unités utilisateur pour le KORG minilogue xd (logue SDK 1.1). Firmware du xd re
 | Waveshaper | MULTI ENGINE (USR) | `WaveShpr` | `oscillators/waveshaper/waveshaper.mnlgxdunit` |
 | Frequency shifter | MOD FX | `FreqShft` | `effects/freqshift/freqshift.mnlgxdunit` |
 | Frequency shifter à échos | MOD FX | `Spiral` | `effects/spiral/spiral.mnlgxdunit` |
+| Delay/réverb métallique, échos nets | DELAY | `DngEcho` | `effects/dungeon/echo/dngecho.mnlgxdunit` |
+| Delay/réverb métallique, dense | DELAY | `DngMetal` | `effects/dungeon/metal/dngmetal.mnlgxdunit` |
+| Delay/réverb métallique, diffus | DELAY | `DngVoid` | `effects/dungeon/void/dngvoid.mnlgxdunit` |
 
 ## WaveShpr (oscillateur)
 
@@ -45,6 +48,26 @@ Les 2 effets partagent le même code. Le canal droit reçoit une porteuse décal
 - **Spiral :** boucle de feedback de 250 ms, assombrie à chaque passage. Chaque écho est décalé une fois de plus, donc les répétitions montent ou descendent en spirale.
 
 Réjection de la bande opposée mesurée : 44 à 50 dB entre 50 Hz et 15 kHz.
+
+## Dungeon : DngEcho, DngMetal, DngVoid (DELAY)
+
+Inspiré du processeur « dungeon » du Forge TME Vhikk X, recréé à partir de sa description publique (pas de son code). Une ligne de délai à 6 taps espacés irrégulièrement, 3 diffuseurs courts et un frequency shifter dans la boucle de feedback.
+
+| Contrôle | Rôle |
+|---|---|
+| TIME | Temps de l'écho principal, de 10 ms à 1,5 s (course exponentielle, midi = 120 ms). Le tourner pendant que ça résonne fait glisser la hauteur, façon bande magnétique. |
+| DEPTH | FEED, bipolaire. Midi = un seul écho. À gauche : la boucle ne renvoie que le signal décalé, les échos montent ou descendent en spirale. À droite : signal décalé mélangé au délai brut, ce qui creuse des encoches mobiles (effet de phaser). Dans les derniers ~15 % de chaque côté, la boucle s'entretient seule : drone infini, tenu par une saturation douce. |
+| SHIFT+DEPTH | Dosage effet / son direct, comme les delays d'origine du xd. À 50 %, les deux sont à plein niveau. À 100 %, effet seul. |
+
+Sur le Vhikk X, FORM (structure), CELL (quantité de décalage) et SEED (espacement des taps) sont des knobs. Le slot DELAY du xd n'a que 3 contrôles, donc ils sont figés dans 3 variantes :
+
+| Variante | FORM | CELL | Caractère |
+|---|---|---|---|
+| DngEcho | 12 % | +1,5 Hz | Échos distincts, légère dérive de hauteur |
+| DngMetal | 60 % | +23 Hz | Taps denses, résonances métalliques, inharmonique |
+| DngVoid | 100 % | -0,35 Hz | Nuage diffus et sombre, descente lente |
+
+Les 3 tiennent dans 3 des 8 slots DELAY. Code : 3 Ko (limite 12 Ko). Mémoire : 1 Mo de SDRAM (limite 2,4 Mo).
 
 ## Charger une unité dans le xd
 
@@ -95,6 +118,12 @@ Le Makefile ne suit pas les modifications des fichiers `.hpp`. Après une modifi
 | `14_spiral_up_arp.wav` | Arpège, échos qui montent de 40 Hz à chaque passage |
 | `15_spiral_down_arp.wav` | Arpège, échos qui descendent de 15 Hz, feedback max |
 | `16_freqshft_max_feedback_sweep.wav` | Test de stabilité : DEPTH à 100 %, TIME balayé sur toute la course |
+| `20_dngecho_arp.wav` | Arpège, 330 ms, FEED à droite 6 s puis à gauche |
+| `21_dngmetal_drums_feed_sweep.wav` | Batterie, 45 ms, FEED balayé de tout à gauche à tout à droite |
+| `22_dngmetal_time_bend.wav` | FEED à 100 % : la boucle tient seule après l'arpège, puis TIME tourne |
+| `23_dngvoid_pad.wav` | Pad dans le nuage diffus |
+| `24_dngvoid_drums_wet.wav` | Batterie, côté encoches, effet seul |
+| `25_dungeon_stress_test.wav` | Test de stabilité : 3 variantes, FEED aux 2 extrêmes, 10 ms et 1,5 s |
 
 ## Structure
 
@@ -102,11 +131,13 @@ Le Makefile ne suit pas les modifications des fichiers `.hpp`. Après une modifi
 common/
   dsp_math.hpp            sinus, racine, soft clip (sans libm)
   freqshift_core.hpp      DSP du frequency shifter
+  dungeon_core.hpp        DSP de Dungeon (réutilise le Hilbert du shifter)
 oscillators/waveshaper/
   waveshaper_core.hpp     DSP du waveshaper
   waveshaper.cpp          branchement à l'API oscillateur du xd
 effects/freqshift/        FreqShft : freqshift.cpp + projet MOD FX
 effects/spiral/           Spiral : même source, compilée avec -DFS_SPIRAL
+effects/dungeon/          dungeon.cpp + 3 projets DELAY (echo, metal, void)
 tools/render/             rendu WAV sur ordinateur
 logue-sdk/                sous-module : https://github.com/korginc/logue-sdk
 ```

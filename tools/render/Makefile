@@ -12,7 +12,7 @@ all: render render_fx
 render: render.cpp wav.hpp ../../oscillators/waveshaper/waveshaper_core.hpp ../../common/dsp_math.hpp
 	$(CXX) $(CXXFLAGS) -o $@ render.cpp
 
-render_fx: render_fx.cpp wav.hpp ../../common/freqshift_core.hpp ../../common/dsp_math.hpp
+render_fx: render_fx.cpp wav.hpp ../../common/freqshift_core.hpp ../../common/dungeon_core.hpp ../../common/dsp_math.hpp
 	$(CXX) $(CXXFLAGS) -o $@ render_fx.cpp
 
 clean:
