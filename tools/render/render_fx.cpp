@@ -144,10 +144,10 @@ static std::vector<float> run(const fshift::Config &cfg, std::vector<float> x,
 // --- Dungeon --------------------------------------------------------------
 
 // Same voicings as effects/dungeon/dungeon.cpp.
-// form, cell_hz, damp, seed, drive, growl_hz, growl_q, fm, chaos, crush
-static const dungeon::Voicing kGrowl = {0.35f, -7.f, 0.55f, 1, 9.f, 70.f, 6.f, 40.f, 0.6f, 3};
-static const dungeon::Voicing kMetal = {0.7f, 31.f, 0.9f, 7, 5.f, 180.f, 8.f, 120.f, 1.f, 1};
-static const dungeon::Voicing kVoid = {1.f, -0.8f, 0.3f, 3, 3.5f, 45.f, 5.f, 15.f, 0.35f, 1};
+// form, cell_hz, damp, seed, drive, growl_hz, growl_q, fm, chaos, crush, max_feed
+static const dungeon::Voicing kGrowl = {0.35f, -7.f, 0.55f, 1, 9.f, 70.f, 6.f, 40.f, 0.6f, 3, 1.35f};
+static const dungeon::Voicing kMetal = {0.7f, 31.f, 0.9f, 7, 5.f, 180.f, 8.f, 120.f, 1.f, 1, 1.35f};
+static const dungeon::Voicing kVoid = {1.f, -0.8f, 0.3f, 3, 3.5f, 45.f, 5.f, 15.f, 0.35f, 1, 1.35f};
 
 // TIME knob value for an echo time in seconds (inverse of setTime).
 static float time_for_s(float s) {

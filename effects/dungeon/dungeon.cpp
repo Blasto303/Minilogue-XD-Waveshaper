@@ -12,13 +12,13 @@
 #include "userdelfx.h"
 #include "../../common/dungeon_core.hpp"
 
-// form, cell_hz, damp, seed, drive, growl_hz, growl_q, fm, chaos, crush
+// form, cell_hz, damp, seed, drive, growl_hz, growl_q, fm, chaos, crush, max_feed
 #if defined(DNG_METAL)
-static const dungeon::Voicing kVoicing = {0.7f, 31.f, 0.9f, 7, 5.f, 180.f, 8.f, 120.f, 1.f, 1};
+static const dungeon::Voicing kVoicing = {0.7f, 31.f, 0.9f, 7, 5.f, 180.f, 8.f, 120.f, 1.f, 1, 1.35f};
 #elif defined(DNG_VOID)
-static const dungeon::Voicing kVoicing = {1.f, -0.8f, 0.3f, 3, 3.5f, 45.f, 5.f, 15.f, 0.35f, 1};
+static const dungeon::Voicing kVoicing = {1.f, -0.8f, 0.3f, 3, 3.5f, 45.f, 5.f, 15.f, 0.35f, 1, 1.35f};
 #else
-static const dungeon::Voicing kVoicing = {0.35f, -7.f, 0.55f, 1, 9.f, 70.f, 6.f, 40.f, 0.6f, 3};
+static const dungeon::Voicing kVoicing = {0.35f, -7.f, 0.55f, 1, 9.f, 70.f, 6.f, 40.f, 0.6f, 3, 1.35f};
 #endif
 
 static dungeon::Memory s_mem __sdram;

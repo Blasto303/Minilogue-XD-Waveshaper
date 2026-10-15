@@ -22,8 +22,8 @@
 //        -> asymmetric saturation, drive rising with |FEED|
 //        -> optional sample-rate reduction
 //        -> damping, DC blocker
-// Loop gain passes 1 at about 70 % FEED on either side: from there it
-// self-oscillates, bounded only by the saturation.
+// Past a voicing-dependent point of the FEED travel the loop gain passes 1:
+// from there it self-oscillates, bounded only by the saturation.
 
 #pragma once
 
@@ -61,6 +61,8 @@ struct Voicing {
   float fm;         // audio-rate read modulation at full FEED, in samples
   float chaos;      // attractor speed and depth, 0..1
   uint32_t crush;   // sample-and-hold factor in the loop, 1 = off
+  float max_feed;   // loop gain at full FEED; just above 1 keeps the
+                    // self-oscillation fragile, higher pins it to the clip
 };
 
 class Dungeon {
@@ -68,7 +70,6 @@ class Dungeon {
   static constexpr float kRate = 48000.f;
   static constexpr float kMinTime = 0.01f;  // s, TIME fully left
   static constexpr float kMaxTime = 1.5f;   // s, TIME fully right
-  static constexpr float kMaxFeed = 1.35f;  // loop gain at full FEED
 
   void init(Memory *mem, const Voicing &v) {
     mem_ = mem;
@@ -186,10 +187,10 @@ class Dungeon {
     }
 
     // --- Per-block coefficients. --------------------------------------------
-    // Loop gain: x^0.8 curve, passes 1 near 70 % FEED.
+    // Loop gain: x^0.8 curve.
     // The attractor pushes the gain around 1, so a self-oscillating loop
     // swells, chokes and restarts on its own.
-    const float g = kMaxFeed * (amt > 0.f ? powf_approx(amt, 0.8f) : 0.f) *
+    const float g = vc.max_feed * (amt > 0.f ? powf_approx(amt, 0.8f) : 0.f) *
                     (1.f + 0.6f * ch_depth * c3);
     const float g_inc = (g - g_z_) * inv;
     float gz = g_z_;
@@ -384,7 +385,7 @@ class Dungeon {
   }
 
   Memory *mem_ = nullptr;
-  Voicing voicing_ = {0.f, 0.f, 1.f, 1, 1.f, 100.f, 1.f, 0.f, 0.f, 1};
+  Voicing voicing_ = {0.f, 0.f, 1.f, 1, 1.f, 100.f, 1.f, 0.f, 0.f, 1, 1.f};
   uint32_t rng_ = 1;
   float ratio_[2][kTaps];
   uint32_t ap_len_[2][kDiffusers];
