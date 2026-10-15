@@ -2,22 +2,23 @@
 // Thin wrapper around common/dungeon_core.hpp.
 //
 // Controls: TIME = echo time (10 ms to 1.5 s), DEPTH = FEED (bipolar,
-// centre = none), SHIFT+DEPTH = dry/wet mix.
+// centre = none, self-oscillates past ~70 % either way), SHIFT+DEPTH =
+// dry/wet mix.
 // Built 3 times from this file with a different fixed voicing:
-//   DngEcho   -DDNG_ECHO   distinct echoes, slow shift
-//   DngMetal  -DDNG_METAL  dense metallic taps, inharmonic shift
-//   DngVoid   -DDNG_VOID   diffuse cloud, slow downward drift
+//   DngGrowl  -DDNG_GROWL  downward shift into sub rumble, heavy drive, crushed
+//   DngMetal  -DDNG_METAL  dense taps, upward shift, strong audio-rate FM
+//   DngVoid   -DDNG_VOID   diffuse cloud, slow sink, deep resonance
 
 #include "userdelfx.h"
 #include "../../common/dungeon_core.hpp"
 
-//                                        form  cell_hz  damp  seed
+// form, cell_hz, damp, seed, drive, growl_hz, growl_q, fm, chaos, crush
 #if defined(DNG_METAL)
-static const dungeon::Voicing kVoicing = {0.6f, 23.f, 0.8f, 7};
+static const dungeon::Voicing kVoicing = {0.7f, 31.f, 0.9f, 7, 5.f, 180.f, 8.f, 120.f, 1.f, 1};
 #elif defined(DNG_VOID)
-static const dungeon::Voicing kVoicing = {1.f, -0.35f, 0.35f, 3};
+static const dungeon::Voicing kVoicing = {1.f, -0.8f, 0.3f, 3, 3.5f, 45.f, 5.f, 15.f, 0.35f, 1};
 #else
-static const dungeon::Voicing kVoicing = {0.12f, 1.5f, 0.6f, 1};
+static const dungeon::Voicing kVoicing = {0.35f, -7.f, 0.55f, 1, 9.f, 70.f, 6.f, 40.f, 0.6f, 3};
 #endif
 
 static dungeon::Memory s_mem __sdram;
