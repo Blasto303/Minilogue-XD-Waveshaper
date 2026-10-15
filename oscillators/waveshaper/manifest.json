@@ -1,0 +1,21 @@
+{
+    "header" :
+    {
+        "platform" : "minilogue-xd",
+        "module" : "osc",
+        "api" : "1.1-0",
+        "dev_id" : 0,
+        "prg_id" : 0,
+        "version" : "0.1-0",
+        "name" : "WaveShpr",
+        "num_param" : 6,
+        "params" : [
+            ["Type",      0,   2, ""],
+            ["Source",    0, 100, "%"],
+            ["Sub",       0, 100, "%"],
+            ["KeyTrack",  0, 100, "%"],
+            ["Damp",      0, 100, "%"],
+            ["Dry",       0, 100, "%"]
+          ]
+    }
+}

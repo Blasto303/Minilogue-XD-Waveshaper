@@ -1,0 +1,4 @@
+build/
+*.mnlgxdunit
+renders/
+tools/render/render
