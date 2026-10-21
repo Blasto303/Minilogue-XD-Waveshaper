@@ -9,6 +9,7 @@ Unités utilisateur pour le KORG minilogue xd (logue SDK 1.1). Firmware du xd re
 | Frequency shifter à échos | MOD FX | `Spiral` | `effects/spiral/spiral.mnlgxdunit` |
 | Delay chaotique, grondement sub | DELAY | `DngGrowl` | `effects/dungeon/growl/dnggrowl.mnlgxdunit` |
 | Delay chaotique, métallique | DELAY | `DngMetal` | `effects/dungeon/metal/dngmetal.mnlgxdunit` |
+| Delay chaotique, résonance de cloche | DELAY | `DngBell` | `effects/dungeon/bell/dngbell.mnlgxdunit` |
 | Delay chaotique, diffus | DELAY | `DngVoid` | `effects/dungeon/void/dngvoid.mnlgxdunit` |
 
 ## WaveShpr (oscillateur)
@@ -49,7 +50,7 @@ Les 2 effets partagent le même code. Le canal droit reçoit une porteuse décal
 
 Réjection de la bande opposée mesurée : 44 à 50 dB entre 50 Hz et 15 kHz.
 
-## Dungeon : DngGrowl, DngMetal, DngVoid (DELAY)
+## Dungeon : DngGrowl, DngMetal, DngBell, DngVoid (DELAY)
 
 Inspiré du processeur « dungeon » du Forge TME Vhikk X, recréé à partir de sa description publique (pas de son code). Le but : un delay qui grogne, sature, auto-oscille et ne se répète jamais.
 
@@ -59,7 +60,7 @@ Dans la boucle de feedback :
 - 3 diffuseurs courts
 - un frequency shifter ; vers le bas, les fréquences se replient sous 0 Hz en grondement grave
 - un filtre résonant grave, dont la fréquence suit l'attracteur
-- une saturation asymétrique qui pousse plus fort quand FEED monte, et un écrasement de la fréquence d'échantillonnage sur DngGrowl
+- une saturation asymétrique qui pousse plus fort quand FEED monte ; la boucle reste sombre, pour que les harmoniques de la saturation s'éteignent au lieu de s'accumuler
 - un bruit infime injecté en permanence : l'effet peut démarrer seul, sans aucun son en entrée
 
 | Contrôle | Rôle |
@@ -68,17 +69,18 @@ Dans la boucle de feedback :
 | DEPTH | FEED, bipolaire. Midi = un seul écho. À gauche : le signal décalé seul repart dans la boucle (spirales), avec plus de modulation de fréquence. À droite : décalé + brut (encoches mobiles), avec plus de grondement résonant. Au-delà d'environ 70 % de chaque côté, la boucle auto-oscille. L'attracteur fait varier le gain autour de 1 : le son enfle, s'étouffe et repart tout seul. |
 | SHIFT+DEPTH | Dosage effet / son direct, comme les delays d'origine du xd. À 50 %, les deux sont à plein niveau. À 100 %, effet seul. |
 
-Sur le Vhikk X, FORM, CELL et SEED sont des knobs. Le slot DELAY du xd n'a que 3 contrôles, donc ils sont figés dans 3 variantes, avec le reste de la voix :
+Sur le Vhikk X, FORM, CELL et SEED sont des knobs. Le slot DELAY du xd n'a que 3 contrôles, donc ils sont figés dans 4 variantes, avec le reste de la voix :
 
 | Variante | Décalage | Caractère |
 |---|---|---|
-| DngGrowl | -7 Hz | Grondement sub, saturation forte, son écrasé (1 échantillon sur 3) |
-| DngMetal | +31 Hz | Taps serrés, forte modulation de fréquence, crissements métalliques |
+| DngGrowl | -7 Hz | Grondement sub dans une boucle sombre, chaos rapide |
+| DngMetal | +31 Hz | Taps serrés, drive léger, métallique |
+| DngBell | +31 Hz | Résonance aiguë à 320 Hz qui sonne comme une cloche, chaos au maximum |
 | DngVoid | -0,8 Hz | Nuage diffus et sombre, résonance très grave, chute lente |
 
-Mesures sur les démos sans entrée, FEED à 95 % : démarrage en moins d'1 s, niveau qui varie de 6 dB d'un dixième de seconde à l'autre. Énergie sous 150 Hz : 77 % pour DngGrowl, 90 % pour DngVoid. Aucun écrêtage de sortie, même aux réglages extrêmes.
+Les 4 variantes démarrent seules sans entrée quand FEED dépasse le seuil d'oscillation. Aucun écrêtage de sortie au stress test, même aux réglages extrêmes.
 
-Code : 4,6 Ko (limite 12 Ko). Mémoire : 1 Mo de SDRAM (limite 2,4 Mo).
+Les 4 occupent 4 des 8 slots DELAY. Code : 4,6 Ko (limite 12 Ko). Mémoire : 1 Mo de SDRAM (limite 2,4 Mo).
 
 ## Charger une unité dans le xd
 
@@ -129,12 +131,13 @@ Le Makefile ne suit pas les modifications des fichiers `.hpp`. Après une modifi
 | `14_spiral_up_arp.wav` | Arpège, échos qui montent de 40 Hz à chaque passage |
 | `15_spiral_down_arp.wav` | Arpège, échos qui descendent de 15 Hz, feedback max |
 | `16_freqshft_max_feedback_sweep.wav` | Test de stabilité : DEPTH à 100 %, TIME balayé sur toute la course |
-| `20_dungeon_from_silence.wav` | Aucune entrée : chaque variante démarre seule (9 s chacune : Growl, Metal, Void) |
+| `20_dungeon_from_silence.wav` | Aucune entrée : chaque variante démarre seule (9 s chacune : Growl, Metal, Bell, Void) |
 | `21_dnggrowl_pad.wav` | Pad, FEED à gauche, poussé jusqu'à l'auto-oscillation |
 | `22_dngmetal_drums_feed_sweep.wav` | Batterie, 45 ms, FEED balayé de tout à gauche à tout à droite |
 | `23_dngmetal_arp_time_bend.wav` | Arpège, puis TIME tourne pendant que ça crisse |
 | `24_dngvoid_pad.wav` | Pad, côté encoches |
-| `25_dungeon_stress_test.wav` | Test de stabilité : 3 variantes, FEED aux 2 extrêmes, 10 ms et 1,5 s |
+| `25_dngbell_pad.wav` | Pad, mêmes gestes que la démo 21 |
+| `26_dungeon_stress_test.wav` | Test de stabilité : 4 variantes, FEED aux 2 extrêmes, 10 ms et 1,5 s |
 
 ## Structure
 
@@ -148,7 +151,7 @@ oscillators/waveshaper/
   waveshaper.cpp          branchement à l'API oscillateur du xd
 effects/freqshift/        FreqShft : freqshift.cpp + projet MOD FX
 effects/spiral/           Spiral : même source, compilée avec -DFS_SPIRAL
-effects/dungeon/          dungeon.cpp + 3 projets DELAY (growl, metal, void)
+effects/dungeon/          dungeon.cpp + 4 projets DELAY (growl, metal, bell, void)
 tools/render/             rendu WAV sur ordinateur
 logue-sdk/                sous-module : https://github.com/korginc/logue-sdk
 ```

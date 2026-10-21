@@ -145,8 +145,9 @@ static std::vector<float> run(const fshift::Config &cfg, std::vector<float> x,
 
 // Same voicings as effects/dungeon/dungeon.cpp.
 // form, cell_hz, damp, seed, drive, growl_hz, growl_q, fm, chaos, crush, max_feed
-static const dungeon::Voicing kGrowl = {0.35f, -7.f, 0.55f, 1, 9.f, 70.f, 6.f, 40.f, 0.6f, 3, 1.35f};
-static const dungeon::Voicing kMetal = {0.7f, 31.f, 0.9f, 7, 5.f, 180.f, 8.f, 120.f, 1.f, 1, 1.35f};
+static const dungeon::Voicing kGrowl = {0.8f, -7.f, 0.25f, 1, 4.f, 60.f, 8.f, 15.f, 0.8f, 1, 1.25f};
+static const dungeon::Voicing kMetal = {0.75f, 31.f, 0.6f, 7, 2.5f, 160.f, 7.f, 20.f, 0.6f, 1, 1.2f};
+static const dungeon::Voicing kBell = {0.85f, 31.f, 0.45f, 7, 2.f, 320.f, 12.f, 30.f, 1.f, 1, 1.2f};
 static const dungeon::Voicing kVoid = {1.f, -0.8f, 0.3f, 3, 3.5f, 45.f, 5.f, 15.f, 0.35f, 1, 1.35f};
 
 // TIME knob value for an echo time in seconds (inverse of setTime).
@@ -233,9 +234,9 @@ int main(int argc, char **argv) {
   //    centre to 95 % over 4 s, then TIME wanders. One variant after another.
   {
     std::vector<float> all;
-    const dungeon::Voicing vs[] = {kGrowl, kMetal, kVoid};
-    const float side[] = {-1.f, 1.f, -1.f};
-    for (int i = 0; i < 3; ++i) {
+    const dungeon::Voicing vs[] = {kGrowl, kMetal, kBell, kVoid};
+    const float side[] = {-1.f, 1.f, -1.f, -1.f};
+    for (int i = 0; i < 4; ++i) {
       const float sd = side[i];
       auto y = run_dng(vs[i], std::vector<float>(2 * 9 * kRate, 0.f),
                        [sd](dungeon::Dungeon &d, float t) {
@@ -273,7 +274,15 @@ int main(int argc, char **argv) {
               d.setMix(0.7f);
             }), 2);
 
-  // 5. DngVoid on the pad, notch side.
+  // 5. DngBell on the pad, same gestures as demo 21.
+  write_wav(dir + "/25_dngbell_pad.wav",
+            run_dng(kBell, pad(12.f), [](dungeon::Dungeon &d, float t) {
+              d.setTime(time_for_s(0.18f));
+              d.setFeed(depth_for_feed(-0.5f - 0.45f * std::fmin(1.f, t / 8.f)));
+              d.setMix(0.6f);
+            }), 2);
+
+  // 6. DngVoid on the pad, notch side.
   write_wav(dir + "/24_dngvoid_pad.wav",
             run_dng(kVoid, pad(12.f), [](dungeon::Dungeon &d, float) {
               d.setTime(time_for_s(0.45f));
@@ -281,10 +290,10 @@ int main(int argc, char **argv) {
               d.setMix(0.7f);
             }), 2);
 
-  // 6. Stress test: every voicing, FEED at both extremes, short and long time.
+  // 7. Stress test: every voicing, FEED at both extremes, short and long time.
   {
     std::vector<float> all;
-    const dungeon::Voicing vs[] = {kGrowl, kMetal, kVoid};
+    const dungeon::Voicing vs[] = {kGrowl, kMetal, kBell, kVoid};
     for (const auto &v : vs)
       for (float feed : {-1.f, 1.f})
         for (float tm : {0.01f, 1.5f}) {
@@ -295,7 +304,7 @@ int main(int argc, char **argv) {
           });
           all.insert(all.end(), y.begin(), y.end());
         }
-    write_wav(dir + "/25_dungeon_stress_test.wav", all, 2);
+    write_wav(dir + "/26_dungeon_stress_test.wav", all, 2);
   }
   return 0;
 }
