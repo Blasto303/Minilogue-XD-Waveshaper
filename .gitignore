@@ -3,3 +3,4 @@ build/
 renders/
 tools/render/render
 tools/render/render_fx
+tools/render/render_gen
