@@ -12,42 +12,12 @@
 #include <vector>
 
 #include "../../oscillators/waveshaper/waveshaper_core.hpp"
+#include "wav.hpp"
 
-static const int kRate = 48000;
 static const int kBlock = 64;  // same block size as the hardware
 
 static float note_w0(float note) {
   return 440.f * std::pow(2.f, (note - 69.f) / 12.f) / kRate;
-}
-
-static void write_wav(const std::string &path, const std::vector<float> &x) {
-  FILE *f = std::fopen(path.c_str(), "wb");
-  if (!f) {
-    std::perror(path.c_str());
-    return;
-  }
-  const uint32_t data_bytes = x.size() * 2;
-  auto u32 = [&](uint32_t v) { std::fwrite(&v, 4, 1, f); };
-  auto u16 = [&](uint16_t v) { std::fwrite(&v, 2, 1, f); };
-  std::fwrite("RIFF", 1, 4, f);
-  u32(36 + data_bytes);
-  std::fwrite("WAVEfmt ", 1, 8, f);
-  u32(16);
-  u16(1);  // PCM
-  u16(1);  // mono
-  u32(kRate);
-  u32(kRate * 2);
-  u16(2);
-  u16(16);
-  std::fwrite("data", 1, 4, f);
-  u32(data_bytes);
-  for (float s : x) {
-    const float c = s > 1.f ? 1.f : (s < -1.f ? -1.f : s);
-    const int16_t v = (int16_t)std::lrint(c * 32767.f);
-    std::fwrite(&v, 2, 1, f);
-  }
-  std::fclose(f);
-  std::printf("wrote %s (%.1f s)\n", path.c_str(), (double)x.size() / kRate);
 }
 
 // Simple amp envelope so note sequences don't click.
