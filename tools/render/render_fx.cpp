@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "../../common/dungeon_core.hpp"
 #include "../../common/freqshift_core.hpp"
 #include "wav.hpp"
 
@@ -140,6 +141,41 @@ static std::vector<float> run(const fshift::Config &cfg, std::vector<float> x,
   return x;
 }
 
+// --- Dungeon --------------------------------------------------------------
+
+// Same voicings as effects/dungeon/dungeon.cpp.
+// form, cell_hz, damp, seed, drive, growl_hz, growl_q, fm, chaos, crush, max_feed,
+// gate, grain, stutter
+static const dungeon::Voicing kGrowl = {0.8f, -7.f, 0.25f, 1, 4.f, 60.f, 8.f, 15.f, 0.8f, 1, 1.25f, 0.f, 0.7f, 0.f};
+static const dungeon::Voicing kMetal = {0.75f, 31.f, 0.6f, 7, 2.5f, 160.f, 7.f, 20.f, 0.6f, 1, 1.2f, 0.f, 0.f, 0.f};
+static const dungeon::Voicing kBell = {0.85f, 31.f, 0.45f, 7, 2.f, 320.f, 12.f, 30.f, 1.f, 1, 1.2f, 0.f, 0.f, 0.f};
+static const dungeon::Voicing kVoid = {1.f, -0.8f, 0.3f, 3, 3.5f, 45.f, 5.f, 15.f, 0.35f, 1, 1.35f, 0.f, 0.7f, 0.f};
+
+// TIME knob value for an echo time in seconds (inverse of setTime).
+static float time_for_s(float s) {
+  return std::log(s / dungeon::Dungeon::kMinTime) /
+         std::log(dungeon::Dungeon::kMaxTime / dungeon::Dungeon::kMinTime);
+}
+
+// FEED in [-1, 1] -> DEPTH knob value.
+static float depth_for_feed(float f) { return 0.5f + 0.5f * f; }
+
+using DngAutomation = std::function<void(dungeon::Dungeon &, float t)>;
+
+static std::vector<float> run_dng(const dungeon::Voicing &v, std::vector<float> x,
+                                  DngAutomation automate) {
+  static dungeon::Memory *mem = new dungeon::Memory;
+  dungeon::Dungeon d;
+  d.init(mem, v);
+  const size_t frames = x.size() / 2;
+  for (size_t i = 0; i < frames; i += kBlock) {
+    automate(d, (float)i / kRate);
+    const size_t n = std::min<size_t>(kBlock, frames - i);
+    d.process(&x[2 * i], n);
+  }
+  return x;
+}
+
 int main(int argc, char **argv) {
   const std::string dir = argc > 1 ? argv[1] : "renders";
   // Same settings as effects/freqshift/freqshift.cpp.
@@ -192,5 +228,84 @@ int main(int argc, char **argv) {
               fs.setTime(t / 8.f);
               fs.setDepth(1.f);
             }), 2);
+
+  // --- Dungeon ---
+
+  // 1. Self-oscillation from silence: no input at all. FEED climbs from
+  //    centre to 95 % over 4 s, then TIME wanders. One variant after another.
+  {
+    std::vector<float> all;
+    const dungeon::Voicing vs[] = {kGrowl, kMetal, kBell, kVoid};
+    const float side[] = {-1.f, 1.f, -1.f, -1.f};
+    for (int i = 0; i < 4; ++i) {
+      const float sd = side[i];
+      auto y = run_dng(vs[i], std::vector<float>(2 * 9 * kRate, 0.f),
+                       [sd](dungeon::Dungeon &d, float t) {
+                         d.setFeed(depth_for_feed(sd * std::fmin(0.95f, 0.5f + 0.45f * t / 4.f)));
+                         d.setTime(time_for_s(0.06f + 0.05f * std::sin(0.9f * t) * (t > 4.f)));
+                         d.setMix(1.f);
+                       });
+      all.insert(all.end(), y.begin(), y.end());
+    }
+    write_wav(dir + "/20_dungeon_from_silence.wav", all, 2);
+  }
+
+  // 2. DngGrowl on the pad: FEED left, pushed into self-oscillation.
+  write_wav(dir + "/21_dnggrowl_pad.wav",
+            run_dng(kGrowl, pad(12.f), [](dungeon::Dungeon &d, float t) {
+              d.setTime(time_for_s(0.18f));
+              d.setFeed(depth_for_feed(-0.5f - 0.45f * std::fmin(1.f, t / 8.f)));
+              d.setMix(0.6f);
+            }), 2);
+
+  // 3. DngMetal on drums: FEED swept from full left to full right.
+  write_wav(dir + "/22_dngmetal_drums_feed_sweep.wav",
+            run_dng(kMetal, drums(12.f), [](dungeon::Dungeon &d, float t) {
+              d.setTime(time_for_s(0.045f));
+              d.setFeed(depth_for_feed(-1.f + 2.f * t / 12.f));
+              d.setMix(0.6f);
+            }), 2);
+
+  // 4. DngMetal on the arpeggio, TIME turned while it screams.
+  write_wav(dir + "/23_dngmetal_arp_time_bend.wav",
+            run_dng(kMetal, arp(12.f, 4.f), [](dungeon::Dungeon &d, float t) {
+              const float s = t < 5.f ? 0.12f : (t < 9.f ? 0.12f + 0.1f * (t - 5.f) : 0.52f);
+              d.setTime(time_for_s(s));
+              d.setFeed(depth_for_feed(-0.85f));
+              d.setMix(0.7f);
+            }), 2);
+
+  // 5. DngBell on the pad, same gestures as demo 21.
+  write_wav(dir + "/25_dngbell_pad.wav",
+            run_dng(kBell, pad(12.f), [](dungeon::Dungeon &d, float t) {
+              d.setTime(time_for_s(0.18f));
+              d.setFeed(depth_for_feed(-0.5f - 0.45f * std::fmin(1.f, t / 8.f)));
+              d.setMix(0.6f);
+            }), 2);
+
+  // 6. DngVoid on the pad, notch side.
+  write_wav(dir + "/24_dngvoid_pad.wav",
+            run_dng(kVoid, pad(12.f), [](dungeon::Dungeon &d, float) {
+              d.setTime(time_for_s(0.45f));
+              d.setFeed(depth_for_feed(0.8f));
+              d.setMix(0.7f);
+            }), 2);
+
+  // 7. Stress test: every voicing, FEED at both extremes, short and long time.
+  {
+    std::vector<float> all;
+    const dungeon::Voicing vs[] = {kGrowl, kMetal, kBell, kVoid};
+    for (const auto &v : vs)
+      for (float feed : {-1.f, 1.f})
+        for (float tm : {0.01f, 1.5f}) {
+          auto y = run_dng(v, drums(3.f), [feed, tm](dungeon::Dungeon &d, float) {
+            d.setTime(time_for_s(tm));
+            d.setFeed(depth_for_feed(feed));
+            d.setMix(1.f);
+          });
+          all.insert(all.end(), y.begin(), y.end());
+        }
+    write_wav(dir + "/26_dungeon_stress_test.wav", all, 2);
+  }
   return 0;
 }

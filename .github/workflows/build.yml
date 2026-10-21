@@ -25,4 +25,5 @@ jobs:
           path: |
             oscillators/*/*.mnlgxdunit
             effects/*/*.mnlgxdunit
+            effects/*/*/*.mnlgxdunit
             renders/*.wav

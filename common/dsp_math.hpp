@@ -60,4 +60,19 @@ DSPM_INLINE float softclip(float x) {
   return x - (4.f / 27.f) * x * x * x;
 }
 
+// 2^x for x in [-24, 24]. Cubic on the fraction, max error ~1e-4.
+DSPM_INLINE float exp2f_(float x) {
+  x = clampf_(x, -24.f, 24.f);
+  const float fl = floorf_(x);
+  const float f = x - fl;
+  const float p = 1.f + f * (0.6951786f + f * (0.2261929f + f * 0.0786281f));
+  const int32_t e = (int32_t)fl;
+  union {
+    float f;
+    uint32_t i;
+  } u;
+  u.i = (uint32_t)(e + 127) << 23;  // 2^e
+  return u.f * p;
+}
+
 }  // namespace dspm
