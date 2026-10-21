@@ -54,7 +54,7 @@ struct Params {
 // How far each oscillator's pitch moves from point to point, around its
 // own fixed base pitch (1 = fully independent points). Phase offsets move
 // instead, so MORPH is heard more as phasing than as pitch jumps.
-static const float kPitchTravel = 0.35f;
+static const float kPitchTravel = 0.15f;
 static const float kPhaseTravel = 0.5f;  // turns, at most half a period
 
 class Swarm {

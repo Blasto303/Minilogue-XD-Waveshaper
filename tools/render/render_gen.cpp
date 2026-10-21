@@ -42,10 +42,11 @@ static const float kPi = 3.14159265f;
 int main(int argc, char **argv) {
   const std::string dir = argc > 1 ? argv[1] : "renders";
 
-  // 1. MORPH sweep through the 8 cluster points, held low C.
+  // 1. MORPH sweep through the 8 cluster points, held low C. Close pitches
+  //    (Span 15 %) so the phase offsets are heard as phasing.
   {
     swarm::Params p;
-    p.span = 0.5f;
+    p.span = 0.15f;
     p.seed = 7;
     p.scan = 3;
     write_wav(dir + "/30_swarm_morph_sweep.wav",

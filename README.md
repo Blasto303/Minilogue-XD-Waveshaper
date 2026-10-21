@@ -38,9 +38,9 @@ Sur le xd, la chaîne façon Vhikk X est : Swarm → filtre et VCA analogiques �
 
 | Contrôle | Rôle |
 |---|---|
-| SHAPE | MORPH : parcourt les 8 points du cluster, avec des fondus de hauteur et de forme d'onde. Le LFO du xd en mode SHAPE le module. |
+| SHAPE | MORPH : parcourt les 8 points du cluster. Chaque oscillateur garde une hauteur de base et ne s'en écarte que légèrement ; ce sont surtout ses formes d'onde et ses décalages de phase (jusqu'à une demi-période) qui glissent. Le LFO du xd en mode SHAPE le module. |
 | SHIFT + SHAPE | WARP, neutre à midi. À gauche : modulation de phase en chaîne entre oscillateurs. À droite : modulation de fréquence exponentielle croisée. |
-| Span | Écart de hauteur entre les oscillateurs : unisson à 0 %, jusqu'à ±1 octave à 100 %. |
+| Span | Écart de hauteur entre les oscillateurs : unisson à 0 %, jusqu'à ±1 octave à 100 %. Les déphasages s'entendent le plus quand les hauteurs sont proches : 15 % est un bon point de départ. |
 | Field | Filtre en peigne accordé sur la note, de la fondamentale à 2 octaves au-dessus. À gauche : son creux. À droite : résonance. Neutre à 0 %. |
 | Fuse | À gauche : les fréquences sont secouées par du bruit filtré (grain, instabilité). À droite : wavefolder. Neutre à 0 %. |
 | Scan | Choisit l'un des 101 jeux de formes d'onde (8 formes : sinus, triangle, dent de scie, carré, pulse, formant, orgue, creux). |
@@ -149,7 +149,7 @@ Le Makefile ne suit pas les modifications des fichiers `.hpp`. Après une modifi
 
 | Fichier | Contenu |
 |---|---|
-| `30_swarm_morph_sweep.wav` | MORPH parcourt les 8 points et revient, sur un do grave |
+| `30_swarm_morph_sweep.wav` | MORPH parcourt les 8 points et revient, sur un do grave, Span à 15 % |
 | `31_swarm_warp_sweep.wav` | WARP de tout à gauche (modulation de phase) à tout à droite (modulation de fréquence) |
 | `32_swarm_seeds.wav` | 6 valeurs de Seed, 2 s chacune |
 | `33_swarm_algos.wav` | Les 4 Algo, 3 s chacun, sur une petite phrase |
