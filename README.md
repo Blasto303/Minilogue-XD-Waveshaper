@@ -62,6 +62,7 @@ Dans la boucle de feedback :
 - un filtre résonant grave, dont la fréquence suit l'attracteur
 - une saturation asymétrique qui pousse plus fort quand FEED monte ; la boucle reste sombre, pour que les harmoniques de la saturation s'éteignent au lieu de s'accumuler
 - un bruit infime injecté en permanence : l'effet peut démarrer seul, sans aucun son en entrée
+- sur DngGrowl et DngVoid, des grains : des fenêtres de 5 à 80 ms qui s'ouvrent au hasard, chacune avec sa propre saturation. Absents avec FEED au centre, ils montent avec FEED et sont à plein vers 70 %
 
 | Contrôle | Rôle |
 |---|---|
@@ -73,14 +74,16 @@ Sur le Vhikk X, FORM, CELL et SEED sont des knobs. Le slot DELAY du xd n'a que 3
 
 | Variante | Décalage | Caractère |
 |---|---|---|
-| DngGrowl | -7 Hz | Grondement sub dans une boucle sombre, chaos rapide |
+| DngGrowl | -7 Hz | Grondement sub dans une boucle sombre, chaos rapide, grains |
 | DngMetal | +31 Hz | Taps serrés, drive léger, métallique |
 | DngBell | +31 Hz | Résonance aiguë à 320 Hz qui sonne comme une cloche, chaos au maximum |
-| DngVoid | -0,8 Hz | Nuage diffus et sombre, résonance très grave, chute lente |
+| DngVoid | -0,8 Hz | Nuage diffus et sombre, résonance très grave, chute lente, grains |
 
 Les 4 variantes démarrent seules sans entrée quand FEED dépasse le seuil d'oscillation. Aucun écrêtage de sortie au stress test, même aux réglages extrêmes.
 
-Les 4 occupent 4 des 8 slots DELAY. Code : 4,6 Ko (limite 12 Ko). Mémoire : 1 Mo de SDRAM (limite 2,4 Mo).
+Le code contient aussi un fuzz gate (coupures par rafales) et un bégaiement (fragments rejoués), testés mais désactivés dans les 4 variantes.
+
+Les 4 occupent 4 des 8 slots DELAY. Code : 6 Ko (limite 12 Ko). Mémoire : 1 Mo de SDRAM (limite 2,4 Mo).
 
 ## Charger une unité dans le xd
 

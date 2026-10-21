@@ -189,6 +189,8 @@ class Dungeon {
       st_idx_ = 0;
       st_on_ = true;
     }
+    // Fragmentation fades in with FEED: none at the centre, full from ~70 %.
+    const float frag = clampf_(1.4f * amt, 0.f, 1.f);
     const float grain_density =
         clampf_(vc.grain * (0.3f + 0.7f * amt) * (1.f + 0.5f * c3), 0.f, 1.f);
     // Fuzz gate: the threshold, relative to the loop's average level, is
@@ -346,8 +348,14 @@ class Dungeon {
         // Fragmentation. The output hears the full cut; the loop only a
         // partial one, so it keeps enough energy to come back.
         if (vc.grain > 0.f) {
-          out_mask[ch] = genv;
-          sat *= 0.4f + 0.6f * genv;
+          if (frag >= 1.f) {
+            out_mask[ch] = genv;
+            sat *= 0.4f + 0.6f * genv;
+          } else {
+            const float cut = frag * (1.f - genv);
+            out_mask[ch] = 1.f - cut;
+            sat *= 1.f - 0.6f * cut;
+          }
         }
         if (vc.gate > 0.f) {
           // Envelope (~4 ms release) decides the bursts; the instantaneous
