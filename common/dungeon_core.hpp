@@ -21,7 +21,9 @@
 //   loop -> resonant band-pass growl (cutoff driven by the attractor)
 //        -> asymmetric saturation, drive rising with |FEED|
 //        -> optional sample-rate reduction
+//        -> optional fragmentation (fuzz gate, random grains)
 //        -> damping, DC blocker
+// The output can also stutter: a short fragment of the memory replayed.
 // Past a voicing-dependent point of the FEED travel the loop gain passes 1:
 // from there it self-oscillates, bounded only by the saturation.
 
@@ -63,6 +65,11 @@ struct Voicing {
   uint32_t crush;   // sample-and-hold factor in the loop, 1 = off
   float max_feed;   // loop gain at full FEED; just above 1 keeps the
                     // self-oscillation fragile, higher pins it to the clip
+  // Fragmentation, all 0 = off (missing from an initialiser = off). Each
+  // grows with |FEED|.
+  float gate;       // "dying battery" fuzz gate: only the crests get through
+  float grain;      // random grains of 5-80 ms, each with its own drive
+  float stutter;    // short fragments of the memory replayed 2-6 times
 };
 
 class Dungeon {
@@ -115,6 +122,15 @@ class Dungeon {
     ap_pos_ = 0;
     phase_ = 0.f;
     crush_n_ = 0;
+    grain_ph_ = 1.f;
+    grain_inc_ = 0.f;
+    grain_on_ = false;
+    grain_drive_ = 1.f;
+    st_on_ = false;
+    gate_env_[0] = gate_env_[1] = 0.f;
+    gate_lev_ = 0.f;
+    gate_hold_ = 0;
+    gate_draw_ = 0.f;
   }
 
   // TIME, [0, 1]: main echo from 10 ms to 1.5 s, exponential.
@@ -164,6 +180,27 @@ class Dungeon {
       if (k >= kTaps) k = kTaps - 1;
       ratio_[ch][k] = randomRatio(k);
     }
+
+    // Stutter: now and then, replay the last 20-150 ms of memory 2-6 times.
+    if (vc.stutter > 0.f && !st_on_ && rand01() < vc.stutter * amt * 0.002f) {
+      st_len_ = (uint32_t)((0.02f + 0.13f * rand01()) * kRate);
+      st_rep_ = 2 + (uint32_t)(5.f * rand01());
+      st_start_ = (pos_ - st_len_) & kLineMask;
+      st_idx_ = 0;
+      st_on_ = true;
+    }
+    const float grain_density =
+        clampf_(vc.grain * (0.3f + 0.7f * amt) * (1.f + 0.5f * c3), 0.f, 1.f);
+    // Fuzz gate: the threshold, relative to the loop's average level, is
+    // redrawn at random and held 5-60 ms. Draws above the level cut the sound:
+    // irregular bursts, like a battery giving out.
+    if (vc.gate > 0.f && gate_hold_-- == 0) {
+      gate_hold_ = 4 + (uint32_t)(41.f * rand01());
+      gate_draw_ = rand01();
+    }
+    const float gate_th = (vc.gate > 0.f)
+        ? gate_lev_ * vc.gate * (0.5f + 0.7f * amt) * (0.2f + 1.6f * gate_draw_) * (1.f + 0.3f * c2)
+        : 0.f;
 
     // --- Tap lengths (samples), gliding toward their targets. ---------------
     const float base = time_s_ * kRate;
@@ -246,7 +283,16 @@ class Dungeon {
       const bool hold = (crush_n_ != 0);
       if (++crush_n_ >= crush) crush_n_ = 0;
 
+      // Grain envelope, shared by both channels.
+      float genv = 1.f;
+      if (vc.grain > 0.f) {
+        grain_ph_ += grain_inc_;
+        if (grain_ph_ >= 1.f) nextGrain(grain_density);
+        genv = grain_on_ ? sin_turns(0.5f * grain_ph_) : 0.f;
+      }
+
       float loop_out[2];
+      float out_mask[2] = {1.f, 1.f};
       for (int ch = 0; ch < 2; ++ch) {
         const float *line = mem_->line[ch];
         // Audio-rate read modulation from the loop's own last output.
@@ -290,11 +336,30 @@ class Dungeon {
         proc += growl_mix * growl_gain * v1;
 
         // Asymmetric saturation (even harmonics, grind).
-        float sat = softclip(drive * proc + bias) - sat_off;
+        const float gdrive = (vc.grain > 0.f) ? grain_drive_ : 1.f;
+        float sat = softclip(drive * gdrive * proc + bias) - sat_off;
 
         // Sample-rate reduction.
         if (hold) sat = hold_[ch];
         hold_[ch] = sat;
+
+        // Fragmentation. The output hears the full cut; the loop only a
+        // partial one, so it keeps enough energy to come back.
+        if (vc.grain > 0.f) {
+          out_mask[ch] = genv;
+          sat *= 0.4f + 0.6f * genv;
+        }
+        if (vc.gate > 0.f) {
+          // Envelope (~4 ms release) decides the bursts; the instantaneous
+          // level adds crackle around the zero crossings.
+          const float a = fabsf_(sat);
+          gate_env_[ch] = a > gate_env_[ch] ? a : gate_env_[ch] * 0.995f;
+          gate_lev_ += 0.0002f * (gate_env_[ch] - gate_lev_);  // ~100 ms average
+          if (gate_env_[ch] < gate_th || a < 0.3f * gate_th) {
+            out_mask[ch] = 0.f;
+            sat *= 0.5f;
+          }
+        }
 
         // Damping, then DC blocker (~5 Hz: keeps the sub, removes the offset
         // the asymmetric saturation creates).
@@ -307,13 +372,30 @@ class Dungeon {
         prev_[ch] = dc;
       }
 
+      // Stutter read (before this sample is written).
+      float st[2] = {0.f, 0.f};
+      if (st_on_) {
+        const uint32_t i = (st_start_ + st_idx_) & kLineMask;
+        // 2 ms fades at both ends of the fragment.
+        const float fi = (float)st_idx_ * (1.f / 96.f);
+        const float fo = (float)(st_len_ - st_idx_) * (1.f / 96.f);
+        const float e = fi < 1.f ? fi : (fo < 1.f ? fo : 1.f);
+        st[0] = e * mem_->line[0][i];
+        st[1] = e * mem_->line[1][i];
+        if (++st_idx_ >= st_len_) {
+          st_idx_ = 0;
+          if (--st_rep_ == 0) st_on_ = false;
+        }
+      }
+
       for (int ch = 0; ch < 2; ++ch) {
         const float x = io[2 * n + ch];
         const float fb = (1.f - cross) * loop_out[ch] + cross * loop_out[1 - ch];
         const float noise = 2e-5f * (rand01() - 0.5f);
         mem_->line[ch][pos] = x + gz * fb + noise;
         // The saturated loop sits near full scale: trim it to the dry level.
-        io[2 * n + ch] = softclip(dz * x + 0.3f * wz * loop_out[ch]);
+        const float wet = st_on_ ? st[ch] : loop_out[ch] * out_mask[ch];
+        io[2 * n + ch] = softclip(dz * x + 0.3f * wz * wet);
       }
 
       pos = (pos + 1) & kLineMask;
@@ -347,6 +429,21 @@ class Dungeon {
     s ^= s << 5;
     rng_ = s;
     return (float)(s >> 8) * (1.f / 16777216.f);
+  }
+
+  // Starts the next grain or the next gap. Denser = more grains, shorter
+  // gaps. Each grain gets its own drive.
+  void nextGrain(float density) {
+    grain_ph_ = 0.f;
+    if (rand01() < density) {
+      const float r = rand01();
+      grain_on_ = true;
+      grain_inc_ = 1.f / ((0.005f + 0.075f * r * r) * kRate);
+      grain_drive_ = 0.5f + 2.f * rand01();
+    } else {
+      grain_on_ = false;
+      grain_inc_ = 1.f / ((0.005f + 0.1f * rand01()) * (1.2f - density) * kRate);
+    }
   }
 
   // Irregular tap fraction for slot k (1..5), spread so taps never collapse.
@@ -385,7 +482,7 @@ class Dungeon {
   }
 
   Memory *mem_ = nullptr;
-  Voicing voicing_ = {0.f, 0.f, 1.f, 1, 1.f, 100.f, 1.f, 0.f, 0.f, 1, 1.f};
+  Voicing voicing_ = {0.f, 0.f, 1.f, 1, 1.f, 100.f, 1.f, 0.f, 0.f, 1, 1.f, 0.f, 0.f, 0.f};
   uint32_t rng_ = 1;
   float ratio_[2][kTaps];
   uint32_t ap_len_[2][kDiffusers];
@@ -398,6 +495,13 @@ class Dungeon {
   uint32_t pos_ = 0, ap_pos_ = 0;
   uint32_t clear_pos_ = 0;
   uint32_t crush_n_ = 0;
+  float grain_ph_ = 1.f, grain_inc_ = 0.f, grain_drive_ = 1.f;
+  bool grain_on_ = false;
+  bool st_on_ = false;
+  float gate_env_[2] = {0.f, 0.f};
+  float gate_lev_ = 0.f, gate_draw_ = 0.f;
+  uint32_t gate_hold_ = 0;
+  uint32_t st_start_ = 0, st_len_ = 1, st_idx_ = 0, st_rep_ = 0;
   float phase_ = 0.f;
   float time_s_ = 0.12f, feed_ = 0.f, mix_ = 0.5f;
   float g_z_ = 0.f, wet_z_ = 1.f, dry_z_ = 1.f;

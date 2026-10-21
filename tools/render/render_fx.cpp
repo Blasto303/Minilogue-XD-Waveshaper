@@ -144,11 +144,12 @@ static std::vector<float> run(const fshift::Config &cfg, std::vector<float> x,
 // --- Dungeon --------------------------------------------------------------
 
 // Same voicings as effects/dungeon/dungeon.cpp.
-// form, cell_hz, damp, seed, drive, growl_hz, growl_q, fm, chaos, crush, max_feed
-static const dungeon::Voicing kGrowl = {0.8f, -7.f, 0.25f, 1, 4.f, 60.f, 8.f, 15.f, 0.8f, 1, 1.25f};
-static const dungeon::Voicing kMetal = {0.75f, 31.f, 0.6f, 7, 2.5f, 160.f, 7.f, 20.f, 0.6f, 1, 1.2f};
-static const dungeon::Voicing kBell = {0.85f, 31.f, 0.45f, 7, 2.f, 320.f, 12.f, 30.f, 1.f, 1, 1.2f};
-static const dungeon::Voicing kVoid = {1.f, -0.8f, 0.3f, 3, 3.5f, 45.f, 5.f, 15.f, 0.35f, 1, 1.35f};
+// form, cell_hz, damp, seed, drive, growl_hz, growl_q, fm, chaos, crush, max_feed,
+// gate, grain, stutter
+static const dungeon::Voicing kGrowl = {0.8f, -7.f, 0.25f, 1, 4.f, 60.f, 8.f, 15.f, 0.8f, 1, 1.25f, 0.f, 0.f, 0.f};
+static const dungeon::Voicing kMetal = {0.75f, 31.f, 0.6f, 7, 2.5f, 160.f, 7.f, 20.f, 0.6f, 1, 1.2f, 0.f, 0.f, 0.f};
+static const dungeon::Voicing kBell = {0.85f, 31.f, 0.45f, 7, 2.f, 320.f, 12.f, 30.f, 1.f, 1, 1.2f, 0.f, 0.f, 0.f};
+static const dungeon::Voicing kVoid = {1.f, -0.8f, 0.3f, 3, 3.5f, 45.f, 5.f, 15.f, 0.35f, 1, 1.35f, 0.f, 0.f, 0.f};
 
 // TIME knob value for an echo time in seconds (inverse of setTime).
 static float time_for_s(float s) {

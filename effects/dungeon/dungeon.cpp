@@ -13,15 +13,16 @@
 #include "userdelfx.h"
 #include "../../common/dungeon_core.hpp"
 
-// form, cell_hz, damp, seed, drive, growl_hz, growl_q, fm, chaos, crush, max_feed
+// form, cell_hz, damp, seed, drive, growl_hz, growl_q, fm, chaos, crush, max_feed,
+// gate, grain, stutter
 #if defined(DNG_METAL)
-static const dungeon::Voicing kVoicing = {0.75f, 31.f, 0.6f, 7, 2.5f, 160.f, 7.f, 20.f, 0.6f, 1, 1.2f};
+static const dungeon::Voicing kVoicing = {0.75f, 31.f, 0.6f, 7, 2.5f, 160.f, 7.f, 20.f, 0.6f, 1, 1.2f, 0.f, 0.f, 0.f};
 #elif defined(DNG_BELL)
-static const dungeon::Voicing kVoicing = {0.85f, 31.f, 0.45f, 7, 2.f, 320.f, 12.f, 30.f, 1.f, 1, 1.2f};
+static const dungeon::Voicing kVoicing = {0.85f, 31.f, 0.45f, 7, 2.f, 320.f, 12.f, 30.f, 1.f, 1, 1.2f, 0.f, 0.f, 0.f};
 #elif defined(DNG_VOID)
-static const dungeon::Voicing kVoicing = {1.f, -0.8f, 0.3f, 3, 3.5f, 45.f, 5.f, 15.f, 0.35f, 1, 1.35f};
+static const dungeon::Voicing kVoicing = {1.f, -0.8f, 0.3f, 3, 3.5f, 45.f, 5.f, 15.f, 0.35f, 1, 1.35f, 0.f, 0.f, 0.f};
 #else
-static const dungeon::Voicing kVoicing = {0.8f, -7.f, 0.25f, 1, 4.f, 60.f, 8.f, 15.f, 0.8f, 1, 1.25f};
+static const dungeon::Voicing kVoicing = {0.8f, -7.f, 0.25f, 1, 4.f, 60.f, 8.f, 15.f, 0.8f, 1, 1.25f, 0.f, 0.f, 0.f};
 #endif
 
 static dungeon::Memory s_mem __sdram;
