@@ -51,6 +51,12 @@ struct Params {
   int algo = kFree;
 };
 
+// How far each oscillator's pitch moves from point to point, around its
+// own fixed base pitch (1 = fully independent points). Phase offsets move
+// instead, so MORPH is heard more as phasing than as pitch jumps.
+static const float kPitchTravel = 0.35f;
+static const float kPhaseTravel = 0.5f;  // turns, at most half a period
+
 class Swarm {
  public:
   Params params;
@@ -94,11 +100,14 @@ class Swarm {
     float w_target[kOsc];
     const float *wave_a[kOsc];
     const float *wave_b[kOsc];
+    float off_a[kOsc], off_b[kOsc];
     for (int j = 0; j < kOsc; ++j) {
       const float s = (1.f - t) * semis(i0, j) + t * semis(i0 + 1, j);
       w_target[j] = w0 * exp2f_(s * (1.f / 12.f));
       wave_a[j] = table_[wave_[i0][j]];
       wave_b[j] = table_[wave_[i0 + 1][j]];
+      off_a[j] = phase_off_[i0][j];
+      off_b[j] = phase_off_[i0 + 1][j];
     }
 
     const float inv = 1.f / (float)frames;
@@ -154,7 +163,7 @@ class Swarm {
         if (fm > 0.f) wj *= exp2f_(fm * mod);
         if (jitter > 0.f) wj *= 1.f + jitter * noise_lp_ * (j & 1 ? -1.f : 1.f) * (1.f + 0.3f * (float)j);
 
-        float ph = phase_[j] + pm * mod;
+        float ph = phase_[j] + off_a[j] + tz * (off_b[j] - off_a[j]) + pm * mod;
         ph -= floorf_(ph);
         const float idx = ph * (float)kTableSize;
         const int k = (int)idx;
@@ -259,6 +268,18 @@ class Swarm {
         pitch_[i][j] = rand11();
         detune_[i][j] = 0.12f * rand11();  // free mode: a little beating
       }
+    // Pull each oscillator's points toward its average pitch.
+    for (int j = 0; j < kOsc; ++j) {
+      float base = 0.f;
+      for (int i = 0; i < kPoints; ++i) base += pitch_[i][j];
+      base *= 1.f / (float)kPoints;
+      for (int i = 0; i < kPoints; ++i)
+        pitch_[i][j] = base + pitch_travel_ * (pitch_[i][j] - base);
+    }
+    // Phase offsets, drawn after the pitches so a given SEED keeps its chord.
+    for (int i = 0; i < kPoints; ++i)
+      for (int j = 0; j < kOsc; ++j)
+        phase_off_[i][j] = (j == 0) ? 0.f : kPhaseTravel * rand11();
     last_seed_ = seed;
   }
 
@@ -282,6 +303,7 @@ class Swarm {
   float table_[kWaves][kTableSize + 1];
   float pitch_[kPoints][kOsc];
   float detune_[kPoints][kOsc];
+  float phase_off_[kPoints][kOsc];
   uint8_t wave_[kPoints][kOsc];
   float comb_[kCombSize];
   float phase_[kOsc];
@@ -294,6 +316,16 @@ class Swarm {
   uint32_t comb_pos_ = 0;
   uint32_t rng_ = 1;
   int last_seed_ = -1, last_scan_ = -1;
+
+ public:
+  // Host-side tuning only (A/B renders); the firmware keeps the default.
+  void setPitchTravel(float v) {
+    pitch_travel_ = v;
+    last_seed_ = -1;
+  }
+
+ private:
+  float pitch_travel_ = kPitchTravel;
 };
 
 }  // namespace swarm
