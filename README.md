@@ -5,6 +5,7 @@ Unités utilisateur pour le KORG minilogue xd (logue SDK 1.1). Firmware du xd re
 | Unité | Slot | Nom sur le xd | Fichier |
 |---|---|---|---|
 | Waveshaper | MULTI ENGINE (USR) | `WaveShpr` | `oscillators/waveshaper/waveshaper.mnlgxdunit` |
+| Générateur à clusters | MULTI ENGINE (USR) | `Swarm` | `oscillators/swarm/swarm.mnlgxdunit` |
 | Frequency shifter | MOD FX | `FreqShft` | `effects/freqshift/freqshift.mnlgxdunit` |
 | Frequency shifter à échos | MOD FX | `Spiral` | `effects/spiral/spiral.mnlgxdunit` |
 | Delay chaotique, grondement sub | DELAY | `DngGrowl` | `effects/dungeon/growl/dnggrowl.mnlgxdunit` |
@@ -28,6 +29,27 @@ Une source sinus ou triangle passe dans un wavefolder, avec un anti-aliasing ADA
 | Dry | Mélange avec la source non traitée. 0 % = 100 % traité. |
 
 Tous les paramètres à 0 donnent un réglage utilisable : sinus pur, SHAPE ouvre le pli.
+
+## Swarm (oscillateur)
+
+Générateur inspiré de la section « generator » du Forge TME Vhikk X, recréé à partir de sa description publique (pas de son code). 4 oscillateurs à tables d'ondes qui se modulent en chaîne, et un « cluster » de 8 points : chaque point donne à chaque oscillateur une hauteur et une forme d'onde. L'oscillateur 0 reste toujours sur la note jouée.
+
+Sur le xd, la chaîne façon Vhikk X est : Swarm → filtre et VCA analogiques → Dungeon en slot DELAY.
+
+| Contrôle | Rôle |
+|---|---|
+| SHAPE | MORPH : parcourt les 8 points du cluster. Chaque oscillateur garde une hauteur de base et ne s'en écarte que légèrement ; ce sont surtout ses formes d'onde et ses décalages de phase (jusqu'à une demi-période) qui glissent. Le LFO du xd en mode SHAPE le module. |
+| SHIFT + SHAPE | WARP, neutre à midi. À gauche : modulation de phase en chaîne entre oscillateurs. À droite : modulation de fréquence exponentielle croisée. |
+| Span | Écart de hauteur entre les oscillateurs : unisson à 0 %, jusqu'à ±1 octave à 100 %. Les déphasages s'entendent le plus quand les hauteurs sont proches : 15 % est un bon point de départ. |
+| Field | Filtre en peigne accordé sur la note, de la fondamentale à 2 octaves au-dessus. À gauche : son creux. À droite : résonance. Neutre à 0 %. |
+| Fuse | À gauche : les fréquences sont secouées par du bruit filtré (grain, instabilité). À droite : wavefolder. Neutre à 0 %. |
+| Scan | Choisit l'un des 101 jeux de formes d'onde (8 formes : sinus, triangle, dent de scie, carré, pulse, formant, orgue, creux). |
+| Seed | Choisit l'un des 101 jeux de décalages de hauteur du cluster. |
+| Algo | Comment Span est appliqué, dans l'ordre : libre (avec un léger désaccord qui bat), demi-tons, gamme mineure, série harmonique. |
+
+L'oscillateur du xd est mono par voix : les modes stéréo du Vhikk X ne sont pas transposables. Les oscillateurs tournent librement, sans remise à zéro de phase à chaque note.
+
+Code : 4 Ko. Mémoire totale : 21 Ko (limite 32 Ko).
 
 ## FreqShft et Spiral (MOD FX)
 
@@ -123,6 +145,18 @@ Le Makefile ne suit pas les modifications des fichiers `.hpp`. Après une modifi
 | `05_bass_phrase_pluck.wav` | Basse, le pli retombe à chaque note |
 | `06_lead_keytrack_saturate.wav` | Lead en saturation avec KeyTrack |
 
+**Swarm (mono, sauf la dernière)**
+
+| Fichier | Contenu |
+|---|---|
+| `30_swarm_morph_sweep.wav` | MORPH parcourt les 8 points et revient, sur un do grave, Span à 15 % |
+| `31_swarm_warp_sweep.wav` | WARP de tout à gauche (modulation de phase) à tout à droite (modulation de fréquence) |
+| `32_swarm_seeds.wav` | 6 valeurs de Seed, 2 s chacune |
+| `33_swarm_algos.wav` | Les 4 Algo, 3 s chacun, sur une petite phrase |
+| `34_swarm_field_sweep.wav` | Field de tout à gauche à tout à droite |
+| `35_swarm_fuse_sweep.wav` | Fuse de tout à gauche à tout à droite |
+| `36_swarm_through_dngvoid.wav` | La chaîne complète : Swarm → filtre et VCA (approximation du xd) → DngVoid, en stéréo |
+
 **Effets (stéréo)**
 
 | Fichier | Contenu |
@@ -152,6 +186,9 @@ common/
 oscillators/waveshaper/
   waveshaper_core.hpp     DSP du waveshaper
   waveshaper.cpp          branchement à l'API oscillateur du xd
+oscillators/swarm/
+  swarm_core.hpp          DSP de Swarm
+  swarm.cpp               branchement à l'API oscillateur du xd
 effects/freqshift/        FreqShft : freqshift.cpp + projet MOD FX
 effects/spiral/           Spiral : même source, compilée avec -DFS_SPIRAL
 effects/dungeon/          dungeon.cpp + 4 projets DELAY (growl, metal, bell, void)
@@ -166,4 +203,8 @@ Chaque projet contient aussi `manifest.json` (nom et paramètres affichés sur l
 - Rien n'est encore testé sur le synthé.
 - WaveShpr, aliasing mesuré à pli maximal sans KeyTrack : invisible jusqu'à environ 260 Hz (sous le plancher de mesure de -43 dB). Vers 1 kHz, il monte à -28 dB (sine fold) et -29 dB (triangle fold). KeyTrack à 100 % le ramène à -32 dB à 1 kHz.
 - WaveShpr : la charge CPU est à vérifier en polyphonie 4 voix.
+- Swarm : 4 oscillateurs par voix, avec modulation croisée à chaque échantillon. C'est l'unité la plus gourmande du repo, la charge CPU en 4 voix est le premier point à tester.
+- Swarm : les tables d'ondes ont 32 harmoniques. Au-dessus d'environ 750 Hz de fondamentale (sol 5), les harmoniques hautes replient. WARP et Span montent aussi certains oscillateurs au-dessus de la note.
+- Swarm : les tables sont calculées au chargement de l'oscillateur. À vérifier qu'il n'y a pas de blanc audible quand on le sélectionne.
+- Swarm : Field et Fuse sont bipolaires. Je ne sais pas si le xd les initialise au centre (0 %) ou en butée gauche (-100 %) au premier chargement.
 - Les unités sont compilées avec GCC 13 au lieu du GCC 5.4 fourni par Korg. L'exemple officiel `waves` compile et se package de la même façon, mais seul un test sur la machine le confirmera.
