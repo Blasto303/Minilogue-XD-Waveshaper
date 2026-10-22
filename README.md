@@ -15,6 +15,7 @@ Unités utilisateur pour le KORG minilogue xd (logue SDK 1.1). Firmware du xd re
 | Granulaire, grains moyens | REVERB | `GrnCloud` | `effects/grain/cloud/grncloud.mnlgxdunit` |
 | Granulaire, shimmer à l'octave | REVERB | `GrnShimr` | `effects/grain/shimmer/grnshimmer.mnlgxdunit` |
 | Granulaire, grains minuscules | REVERB | `GrnDust` | `effects/grain/dust/grndust.mnlgxdunit` |
+| Granulaire, gamme mineure | REVERB | `GrnScale` | `effects/grain/scale/grnscale.mnlgxdunit` |
 
 ## WaveShpr (oscillateur)
 
@@ -110,7 +111,7 @@ Le code contient aussi un fuzz gate (coupures par rafales) et un bégaiement (fr
 
 Les 4 occupent 4 des 8 slots DELAY. Code : 6 Ko (limite 12 Ko). Mémoire : 1 Mo de SDRAM (limite 2,4 Mo).
 
-## Grain : GrnCloud, GrnShimr, GrnDust (REVERB)
+## Grain : GrnCloud, GrnShimr, GrnDust, GrnScale (REVERB)
 
 Granulaire inspiré du mode granulaire de Mutable Instruments Clouds, écrit de zéro (pas de code de Clouds). L'entrée est enregistrée en continu dans environ 5,5 s de mémoire stéréo, et jusqu'à 16 grains en relisent des morceaux fenêtrés.
 
@@ -127,8 +128,9 @@ Taille des grains, transpositions, forme des fenêtres, étalement stéréo, fee
 | GrnCloud | ~120 ms, sans transposition | Nuage doux, fenêtres arrondies |
 | GrnShimr | ~180 ms, unisson, octave et quinte au-dessus | Shimmer : le feedback renvoie les grains transposés dans la mémoire, ils montent en cascade |
 | GrnDust | ~25 ms, octave en dessous, quinte, octave au-dessus | Poussière : grains courts aux bords francs, très étalés en stéréo |
+| GrnScale | ~100 ms, n'importe quel degré de la gamme mineure, sur ±1 octave | Gamme quantifiée, comme les Sky Modes du Qu-Bit Mojave. L'effet ne connaît pas la note jouée : la gamme se construit sur la hauteur de ce qui entre. Sur une note tenue, les grains forment un accord mineur autour d'elle. |
 
-Au maximum de densité, 11 à 12 grains tournent en moyenne, avec des pointes au plafond de 16. Code : 3,5 Ko (limite 12 Ko). Mémoire : 2 Mo de SDRAM (limite 2,4 Mo).
+Mesuré sur un sinus, les degrés de la gamme mineure sortent en moyenne 20 dB au-dessus des autres demi-tons avec GrnScale. Au maximum de densité, 11 à 12 grains tournent en moyenne, avec des pointes au plafond de 16. Code : 3,5 Ko (limite 12 Ko). Mémoire : 2 Mo de SDRAM (limite 2,4 Mo).
 
 Le template Korg place les unités REVERB et DELAY aux mêmes adresses mémoire. Il est donc probable qu'un Grain et un Dungeon ne puissent pas tourner en même temps. Un delay d'origine du xd devant un Grain devrait fonctionner. À vérifier sur la machine.
 
@@ -205,7 +207,9 @@ Le Makefile ne suit pas les modifications des fichiers `.hpp`. Après une modifi
 | `42_grnshimmer_pad.wav` | Pad dans le shimmer |
 | `43_grndust_drums.wav` | Batterie en poussière, grains aléatoires |
 | `44_grndust_arp_regular.wav` | Arpège, grains réguliers, POSITION qui recule |
-| `45_grain_stress_test.wav` | Test de stabilité : 3 variantes, DENSITY aux 2 extrêmes, position courte et FREEZE |
+| `45_grain_stress_test.wav` | Test de stabilité : 4 variantes, DENSITY aux 2 extrêmes, position courte et FREEZE |
+| `46_grnscale_held_note.wav` | Une note tenue : les grains construisent une gamme mineure autour d'elle |
+| `47_grnscale_arp_regular.wav` | Arpège, grains réguliers dans la gamme |
 
 ## Structure
 
@@ -224,7 +228,7 @@ oscillators/swarm/
 effects/freqshift/        FreqShft : freqshift.cpp + projet MOD FX
 effects/spiral/           Spiral : même source, compilée avec -DFS_SPIRAL
 effects/dungeon/          dungeon.cpp + 4 projets DELAY (growl, metal, bell, void)
-effects/grain/            grain.cpp + 3 projets REVERB (cloud, shimmer, dust)
+effects/grain/            grain.cpp + 4 projets REVERB (cloud, shimmer, dust, scale)
 tools/render/             rendu WAV sur ordinateur
 logue-sdk/                sous-module : https://github.com/korginc/logue-sdk
 ```

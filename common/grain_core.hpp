@@ -51,6 +51,11 @@ struct Voicing {
   float feedback;      // wet written back into memory (not when frozen)
   float diffuse;       // allpass smear on the wet signal, 0..1
   uint32_t seed;
+  // Scale mode (0 = off: grains pick from `pitches`). 1 = natural minor:
+  // grains pick a random degree within +/- scale_range semitones of the
+  // input, so they stay in a minor scale built on whatever is playing.
+  int scale;
+  float scale_range;
 };
 
 class Grains {
@@ -255,8 +260,9 @@ class Grains {
     Grain &gr = grains_[slot];
 
     const float len = size_mean * (1.f + vc.size_rand * (2.f * rand01() - 1.f) * 0.9f);
-    const float semis = vc.pitches[(int)(rand01() * (float)vc.num_pitches) % vc.num_pitches] +
-                        vc.detune_cents * 0.01f * (2.f * rand01() - 1.f);
+    const float base = vc.scale ? quantizeMinor(vc.scale_range * (2.f * rand01() - 1.f))
+                                : vc.pitches[(int)(rand01() * (float)vc.num_pitches) % vc.num_pitches];
+    const float semis = base + vc.detune_cents * 0.01f * (2.f * rand01() - 1.f);
     gr.rate = exp2f_(semis * (1.f / 12.f));
 
     // How far back to start. A grain reading faster than real time must
@@ -288,6 +294,22 @@ class Grains {
     gr.active = true;
   }
 
+  // Nearest degree of the natural minor scale, any octave.
+  static float quantizeMinor(float s) {
+    static const float kScale[8] = {0.f, 2.f, 3.f, 5.f, 7.f, 8.f, 10.f, 12.f};
+    const float oct = floorf_(s * (1.f / 12.f));
+    const float r = s - 12.f * oct;
+    float best = 0.f, dist = 99.f;
+    for (int k = 0; k < 8; ++k) {
+      const float d = fabsf_(r - kScale[k]);
+      if (d < dist) {
+        dist = d;
+        best = kScale[k];
+      }
+    }
+    return 12.f * oct + best;
+  }
+
   void clearChunk(uint32_t n) {
     const uint32_t end = (clear_pos_ + n > kBufSize) ? kBufSize : clear_pos_ + n;
     for (int ch = 0; ch < 2; ++ch)
@@ -305,7 +327,7 @@ class Grains {
   }
 
   Memory *mem_ = nullptr;
-  Voicing voicing_ = {0.1f, 0.f, {0.f, 0.f, 0.f, 0.f}, 1, 0.f, 0.f, 0.f, 0.f, 0.f, 1};
+  Voicing voicing_ = {0.1f, 0.f, {0.f, 0.f, 0.f, 0.f}, 1, 0.f, 0.f, 0.f, 0.f, 0.f, 1, 0, 0.f};
   Grain grains_[kMaxGrains];
   float win_[kWinSize + 1];
   uint32_t ap_len_[2][kDiffusers];

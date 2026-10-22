@@ -180,9 +180,26 @@ static std::vector<float> run_dng(const dungeon::Voicing &v, std::vector<float> 
 // --- Grains ---------------------------------------------------------------
 
 // Same voicings as effects/grain/grain.cpp.
-static const grain::Voicing kCloud = {0.12f, 0.3f, {0.f, 0.f, 0.f, 0.f}, 1, 6.f, 0.1f, 0.6f, 0.f, 0.5f, 3};
-static const grain::Voicing kShimmer = {0.18f, 0.3f, {0.f, 12.f, 12.f, 19.f}, 4, 3.f, 0.05f, 0.8f, 0.45f, 0.6f, 5};
-static const grain::Voicing kDust = {0.025f, 0.6f, {0.f, -12.f, 7.f, 12.f}, 4, 15.f, 0.8f, 1.f, 0.1f, 0.2f, 9};
+static const grain::Voicing kCloud = {0.12f, 0.3f, {0.f, 0.f, 0.f, 0.f}, 1, 6.f, 0.1f, 0.6f, 0.f, 0.5f, 3, 0, 0.f};
+static const grain::Voicing kShimmer = {0.18f, 0.3f, {0.f, 12.f, 12.f, 19.f}, 4, 3.f, 0.05f, 0.8f, 0.45f, 0.6f, 5, 0, 0.f};
+static const grain::Voicing kDust = {0.025f, 0.6f, {0.f, -12.f, 7.f, 12.f}, 4, 15.f, 0.8f, 1.f, 0.1f, 0.2f, 9, 0, 0.f};
+static const grain::Voicing kScaleV = {0.1f, 0.4f, {0.f, 0.f, 0.f, 0.f}, 1, 4.f, 0.15f, 0.7f, 0.f, 0.5f, 11, 1, 12.f};
+
+// One held, softly filtered saw note (stereo), to hear grains build a
+// scale around a single pitch.
+static std::vector<float> held_note(float seconds, float note) {
+  const size_t n = (size_t)(seconds * kRate);
+  std::vector<float> out(2 * n);
+  Saw saw;
+  float lp = 0.f;
+  for (size_t i = 0; i < n; ++i) {
+    const float t = (float)i / kRate;
+    lp += 0.05f * (saw.tick(hz(note)) - lp);
+    const float a = std::fmin(1.f, t / 0.3f) * std::fmin(1.f, (seconds - t) / 0.5f);
+    out[2 * i] = out[2 * i + 1] = 0.3f * lp * a;
+  }
+  return out;
+}
 
 // TIME knob value for a grain position in seconds (inverse of setTime).
 static float time_for_pos(float s) { return 0.97f * std::sqrt((s - 0.005f) / 4.9f); }
@@ -383,7 +400,7 @@ int main(int argc, char **argv) {
   // position and freeze, fully wet.
   {
     std::vector<float> all;
-    const grain::Voicing vs[] = {kCloud, kShimmer, kDust};
+    const grain::Voicing vs[] = {kCloud, kShimmer, kDust, kScaleV};
     for (const auto &v : vs)
       for (float dens : {0.f, 1.f})
         for (float tm : {0.f, 1.f}) {
@@ -396,5 +413,21 @@ int main(int argc, char **argv) {
         }
     write_wav(dir + "/45_grain_stress_test.wav", all, 2);
   }
+
+  // GrnScale on one held note: random grains build a minor scale around it.
+  write_wav(dir + "/46_grnscale_held_note.wav",
+            run_grn(kScaleV, held_note(14.f, 48.f), [](grain::Grains &g, float) {
+              g.setTime(time_for_pos(0.3f));
+              g.setDensity(0.5f + 0.5f * 0.6f);
+              g.setMix(0.6f);
+            }), 2);
+
+  // GrnScale on the arpeggio, regular grains.
+  write_wav(dir + "/47_grnscale_arp_regular.wav",
+            run_grn(kScaleV, arp(12.f, 12.f), [](grain::Grains &g, float) {
+              g.setTime(time_for_pos(0.4f));
+              g.setDensity(0.5f - 0.5f * 0.6f);
+              g.setMix(0.6f);
+            }), 2);
   return 0;
 }
