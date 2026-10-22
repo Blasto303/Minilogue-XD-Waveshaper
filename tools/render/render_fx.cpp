@@ -12,6 +12,7 @@
 
 #include "../../common/dungeon_core.hpp"
 #include "../../common/freqshift_core.hpp"
+#include "../../common/grain_core.hpp"
 #include "wav.hpp"
 
 static const int kBlock = 64;
@@ -176,6 +177,32 @@ static std::vector<float> run_dng(const dungeon::Voicing &v, std::vector<float> 
   return x;
 }
 
+// --- Grains ---------------------------------------------------------------
+
+// Same voicings as effects/grain/grain.cpp.
+static const grain::Voicing kCloud = {0.12f, 0.3f, {0.f, 0.f, 0.f, 0.f}, 1, 6.f, 0.1f, 0.6f, 0.f, 0.5f, 3};
+static const grain::Voicing kShimmer = {0.18f, 0.3f, {0.f, 12.f, 12.f, 19.f}, 4, 3.f, 0.05f, 0.8f, 0.45f, 0.6f, 5};
+static const grain::Voicing kDust = {0.025f, 0.6f, {0.f, -12.f, 7.f, 12.f}, 4, 15.f, 0.8f, 1.f, 0.1f, 0.2f, 9};
+
+// TIME knob value for a grain position in seconds (inverse of setTime).
+static float time_for_pos(float s) { return 0.97f * std::sqrt((s - 0.005f) / 4.9f); }
+
+using GrnAutomation = std::function<void(grain::Grains &, float t)>;
+
+static std::vector<float> run_grn(const grain::Voicing &v, std::vector<float> x,
+                                  GrnAutomation automate) {
+  static grain::Memory *mem = new grain::Memory;
+  grain::Grains g;
+  g.init(mem, v);
+  const size_t frames = x.size() / 2;
+  for (size_t i = 0; i < frames; i += kBlock) {
+    automate(g, (float)i / kRate);
+    const size_t n = std::min<size_t>(kBlock, frames - i);
+    g.process(&x[2 * i], n);
+  }
+  return x;
+}
+
 int main(int argc, char **argv) {
   const std::string dir = argc > 1 ? argv[1] : "renders";
   // Same settings as effects/freqshift/freqshift.cpp.
@@ -306,6 +333,68 @@ int main(int argc, char **argv) {
           all.insert(all.end(), y.begin(), y.end());
         }
     write_wav(dir + "/26_dungeon_stress_test.wav", all, 2);
+  }
+  // --- Grains ---
+
+  // GrnCloud on the arpeggio: DENSITY from centre to full left (regular),
+  // then from centre to full right (random).
+  write_wav(dir + "/40_grncloud_arp_density.wav",
+            run_grn(kCloud, arp(14.f, 14.f), [](grain::Grains &g, float t) {
+              g.setTime(time_for_pos(0.3f));
+              const float d = t < 7.f ? -t / 7.f : (t - 7.f) / 7.f;
+              g.setDensity(0.5f + 0.5f * d);
+              g.setMix(0.6f);
+            }), 2);
+
+  // GrnCloud freeze: the pad is captured, then TIME goes fully right at 5 s
+  // and the grains keep playing the frozen memory while the input goes on.
+  write_wav(dir + "/41_grncloud_freeze_pad.wav",
+            run_grn(kCloud, pad(14.f), [](grain::Grains &g, float t) {
+              g.setTime(t < 5.f ? time_for_pos(0.5f) : 1.f);
+              g.setDensity(0.5f + 0.5f * 0.75f);
+              g.setMix(t < 5.f ? 0.5f : 1.f);
+            }), 2);
+
+  // GrnShimr on the pad.
+  write_wav(dir + "/42_grnshimmer_pad.wav",
+            run_grn(kShimmer, pad(14.f), [](grain::Grains &g, float) {
+              g.setTime(time_for_pos(0.4f));
+              g.setDensity(0.5f + 0.5f * 0.65f);
+              g.setMix(0.6f);
+            }), 2);
+
+  // GrnDust on drums.
+  write_wav(dir + "/43_grndust_drums.wav",
+            run_grn(kDust, drums(12.f), [](grain::Grains &g, float) {
+              g.setTime(time_for_pos(0.15f));
+              g.setDensity(0.5f + 0.5f * 0.85f);
+              g.setMix(0.7f);
+            }), 2);
+
+  // GrnDust on the arpeggio, regular side, position drifting back.
+  write_wav(dir + "/44_grndust_arp_regular.wav",
+            run_grn(kDust, arp(12.f, 12.f), [](grain::Grains &g, float t) {
+              g.setTime(time_for_pos(0.05f + 0.25f * t / 12.f));
+              g.setDensity(0.5f - 0.5f * 0.7f);
+              g.setMix(0.7f);
+            }), 2);
+
+  // Stress test: every voicing, DENSITY at both extremes, shortest
+  // position and freeze, fully wet.
+  {
+    std::vector<float> all;
+    const grain::Voicing vs[] = {kCloud, kShimmer, kDust};
+    for (const auto &v : vs)
+      for (float dens : {0.f, 1.f})
+        for (float tm : {0.f, 1.f}) {
+          auto y = run_grn(v, pad(3.f), [dens, tm](grain::Grains &g, float t) {
+            g.setTime(t < 1.f ? 0.3f : tm);
+            g.setDensity(dens);
+            g.setMix(1.f);
+          });
+          all.insert(all.end(), y.begin(), y.end());
+        }
+    write_wav(dir + "/45_grain_stress_test.wav", all, 2);
   }
   return 0;
 }
