@@ -12,6 +12,10 @@ Unités utilisateur pour le KORG minilogue xd (logue SDK 1.1). Firmware du xd re
 | Delay chaotique, métallique | DELAY | `DngMetal` | `effects/dungeon/metal/dngmetal.mnlgxdunit` |
 | Delay chaotique, résonance de cloche | DELAY | `DngBell` | `effects/dungeon/bell/dngbell.mnlgxdunit` |
 | Delay chaotique, diffus | DELAY | `DngVoid` | `effects/dungeon/void/dngvoid.mnlgxdunit` |
+| Granulaire, grains moyens | REVERB | `GrnCloud` | `effects/grain/cloud/grncloud.mnlgxdunit` |
+| Granulaire, shimmer à l'octave | REVERB | `GrnShimr` | `effects/grain/shimmer/grnshimmer.mnlgxdunit` |
+| Granulaire, grains minuscules | REVERB | `GrnDust` | `effects/grain/dust/grndust.mnlgxdunit` |
+| Granulaire, gamme mineure | REVERB | `GrnScale` | `effects/grain/scale/grnscale.mnlgxdunit` |
 
 ## WaveShpr (oscillateur)
 
@@ -107,6 +111,29 @@ Le code contient aussi un fuzz gate (coupures par rafales) et un bégaiement (fr
 
 Les 4 occupent 4 des 8 slots DELAY. Code : 6 Ko (limite 12 Ko). Mémoire : 1 Mo de SDRAM (limite 2,4 Mo).
 
+## Grain : GrnCloud, GrnShimr, GrnDust, GrnScale (REVERB)
+
+Granulaire inspiré du mode granulaire de Mutable Instruments Clouds, écrit de zéro (pas de code de Clouds). L'entrée est enregistrée en continu dans environ 5,5 s de mémoire stéréo, et jusqu'à 16 grains en relisent des morceaux fenêtrés.
+
+| Contrôle | Rôle |
+|---|---|
+| TIME | POSITION : à quelle distance dans le passé les grains vont lire, de 5 ms à environ 5 s (course plus fine près du présent). Tout à droite : FREEZE, l'enregistrement s'arrête et les grains se dispersent sur toute la mémoire figée. |
+| DEPTH | DENSITY, bipolaire comme sur Clouds. Midi : aucun nouveau grain. À gauche : grains réguliers, de plus en plus serrés. À droite : grains aléatoires, de plus en plus denses. |
+| SHIFT+DEPTH | Dosage effet / son direct. À 50 %, les deux sont à plein niveau. |
+
+Taille des grains, transpositions, forme des fenêtres, étalement stéréo, feedback et diffusion sont fixés par variante :
+
+| Variante | Grains | Caractère |
+|---|---|---|
+| GrnCloud | ~120 ms, sans transposition | Nuage doux, fenêtres arrondies |
+| GrnShimr | ~180 ms, unisson, octave et quinte au-dessus | Shimmer : le feedback renvoie les grains transposés dans la mémoire, ils montent en cascade |
+| GrnDust | ~25 ms, octave en dessous, quinte, octave au-dessus | Poussière : grains courts aux bords francs, très étalés en stéréo |
+| GrnScale | ~100 ms, n'importe quel degré de la gamme mineure, sur ±1 octave | Gamme quantifiée, comme les Sky Modes du Qu-Bit Mojave. L'effet ne connaît pas la note jouée : la gamme se construit sur la hauteur de ce qui entre. Sur une note tenue, les grains forment un accord mineur autour d'elle. |
+
+Mesuré sur un sinus, les degrés de la gamme mineure sortent en moyenne 20 dB au-dessus des autres demi-tons avec GrnScale. Au maximum de densité, 11 à 12 grains tournent en moyenne, avec des pointes au plafond de 16. Code : 3,5 Ko (limite 12 Ko). Mémoire : 2 Mo de SDRAM (limite 2,4 Mo).
+
+Le template Korg place les unités REVERB et DELAY aux mêmes adresses mémoire. Il est donc probable qu'un Grain et un Dungeon ne puissent pas tourner en même temps. Un delay d'origine du xd devant un Grain devrait fonctionner. À vérifier sur la machine.
+
 ## Charger une unité dans le xd
 
 1. Récupère le fichier `.mnlgxdunit`. Il est dans l'onglet Actions du repo (dernier build, artefact `units-and-demos`), ou tu peux le compiler (voir plus bas).
@@ -175,6 +202,14 @@ Le Makefile ne suit pas les modifications des fichiers `.hpp`. Après une modifi
 | `24_dngvoid_pad.wav` | Pad, côté encoches |
 | `25_dngbell_pad.wav` | Pad, mêmes gestes que la démo 21 |
 | `26_dungeon_stress_test.wav` | Test de stabilité : 4 variantes, FEED aux 2 extrêmes, 10 ms et 1,5 s |
+| `40_grncloud_arp_density.wav` | Arpège, DENSITY du centre vers la gauche (régulier), puis du centre vers la droite (aléatoire) |
+| `41_grncloud_freeze_pad.wav` | Pad capturé, puis FREEZE à 5 s : les grains rejouent la mémoire figée |
+| `42_grnshimmer_pad.wav` | Pad dans le shimmer |
+| `43_grndust_drums.wav` | Batterie en poussière, grains aléatoires |
+| `44_grndust_arp_regular.wav` | Arpège, grains réguliers, POSITION qui recule |
+| `45_grain_stress_test.wav` | Test de stabilité : 4 variantes, DENSITY aux 2 extrêmes, position courte et FREEZE |
+| `46_grnscale_held_note.wav` | Une note tenue : les grains construisent une gamme mineure autour d'elle |
+| `47_grnscale_arp_regular.wav` | Arpège, grains réguliers dans la gamme |
 
 ## Structure
 
@@ -183,6 +218,7 @@ common/
   dsp_math.hpp            sinus, racine, soft clip (sans libm)
   freqshift_core.hpp      DSP du frequency shifter
   dungeon_core.hpp        DSP de Dungeon (réutilise le Hilbert du shifter)
+  grain_core.hpp          DSP du granulaire
 oscillators/waveshaper/
   waveshaper_core.hpp     DSP du waveshaper
   waveshaper.cpp          branchement à l'API oscillateur du xd
@@ -192,6 +228,7 @@ oscillators/swarm/
 effects/freqshift/        FreqShft : freqshift.cpp + projet MOD FX
 effects/spiral/           Spiral : même source, compilée avec -DFS_SPIRAL
 effects/dungeon/          dungeon.cpp + 4 projets DELAY (growl, metal, bell, void)
+effects/grain/            grain.cpp + 4 projets REVERB (cloud, shimmer, dust, scale)
 tools/render/             rendu WAV sur ordinateur
 logue-sdk/                sous-module : https://github.com/korginc/logue-sdk
 ```
